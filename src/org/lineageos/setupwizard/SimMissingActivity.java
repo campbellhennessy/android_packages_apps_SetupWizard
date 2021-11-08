@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 The CyanogenMod Project
- * Copyright (C) 2017-2020 The LineageOS Project
+ * Copyright (C) 2017-2021 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import android.widget.ImageView;
 import com.google.android.setupcompat.util.ResultCodes;
 
 import org.lineageos.setupwizard.util.PhoneMonitor;
+import org.lineageos.setupwizard.util.SetupWizardUtils;
 
 public class SimMissingActivity extends BaseSetupWizardActivity {
 
@@ -41,10 +42,9 @@ public class SimMissingActivity extends BaseSetupWizardActivity {
         if (!mPhoneMonitor.simMissing()) {
             finishAction(RESULT_OK);
         }
-        setNextText(R.string.skip);
         final int simLocation = getResources().getInteger(
                 R.integer.sim_image_type);
-        ImageView simLogo = ((ImageView)findViewById(R.id.sim_slot_image));
+        ImageView simLogo = ((ImageView) findViewById(R.id.sim_slot_image));
         switch (simLocation) {
             case SIM_SIDE:
                 simLogo.setImageResource(R.drawable.sim_side);
@@ -59,12 +59,21 @@ public class SimMissingActivity extends BaseSetupWizardActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        SetupWizardUtils.enableComponent(this, ChooseDataSimActivity.class);
+        SetupWizardUtils.enableComponent(this, MobileDataActivity.class);
+    }
+
+    @Override
     public void onNavigateNext() {
         if (mPhoneMonitor.simMissing()) {
-            nextAction(ResultCodes.RESULT_SKIP);
-        } else {
-            super.onNavigateNext();
+            SetupWizardUtils.disableComponent(this, ChooseDataSimActivity.class);
+            SetupWizardUtils.disableComponent(this, MobileDataActivity.class);
+        } else if (!mPhoneMonitor.isMultiSimDevice() || mPhoneMonitor.singleSimInserted()) {
+            SetupWizardUtils.disableComponent(this, ChooseDataSimActivity.class);
         }
+        super.onNavigateNext();
     }
 
     @Override

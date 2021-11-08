@@ -26,11 +26,9 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.res.XmlResourceParser;
 import android.os.Bundle;
 import android.os.Handler;
 import android.text.format.DateFormat;
-import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.DatePicker;
@@ -39,15 +37,13 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.TimePicker;
 
+import com.android.settingslib.datetime.ZoneGetter;
+
 import org.lineageos.setupwizard.util.SetupWizardUtils;
 
-import org.xmlpull.v1.XmlPullParserException;
-
-import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
@@ -57,10 +53,10 @@ public class DateTimeActivity extends BaseSetupWizardActivity implements
 
     public static final String TAG = DateTimeActivity.class.getSimpleName();
 
-    private static final String KEY_ID = "id";  // value: String
-    private static final String KEY_DISPLAYNAME = "name";  // value: String
-    private static final String KEY_GMT = "gmt";  // value: String
-    private static final String KEY_OFFSET = "offset";  // value: int (Integer)
+    private static final String KEY_ID = "id"; // value: String
+    private static final String KEY_DISPLAYNAME = "name"; // value: String
+    private static final String KEY_GMT = "gmt"; // value: String
+    private static final String KEY_OFFSET = "offset"; // value: int (Integer)
     private static final String XMLTAG_TIMEZONE = "timezone";
 
     private static final int HOURS_1 = 60 * 60000;
@@ -69,13 +65,12 @@ public class DateTimeActivity extends BaseSetupWizardActivity implements
     private TextView mDateTextView;
     private TextView mTimeTextView;
 
-
     private final Handler mHandler = new Handler();
 
-    private BroadcastReceiver mIntentReceiver = new BroadcastReceiver() {
+    private final BroadcastReceiver mIntentReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-                updateTimeAndDateDisplay();
+            updateTimeAndDateDisplay();
         }
     };
 
@@ -85,14 +80,14 @@ public class DateTimeActivity extends BaseSetupWizardActivity implements
         setNextText(R.string.next);
 
         final Spinner spinner = (Spinner) findViewById(R.id.timezone_list);
-        final SimpleAdapter adapter = constructTimezoneAdapter(this, false);
+        final SimpleAdapter adapter = constructTimezoneAdapter(this);
         mCurrentTimeZone = TimeZone.getDefault();
         View dateView = findViewById(R.id.date_item);
         dateView.setOnClickListener((view) -> showDatePicker());
         View timeView = findViewById(R.id.time_item);
         timeView.setOnClickListener((view) -> showTimePicker());
-        mDateTextView = (TextView)findViewById(R.id.date_text);
-        mTimeTextView = (TextView)findViewById(R.id.time_text);
+        mDateTextView = (TextView) findViewById(R.id.date_text);
+        mTimeTextView = (TextView) findViewById(R.id.time_text);
         // Pre-select current/default timezone
         mHandler.post(() -> {
             int tzIndex = getTimeZoneIndex(adapter, mCurrentTimeZone);
@@ -103,7 +98,7 @@ public class DateTimeActivity extends BaseSetupWizardActivity implements
             spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
                 @Override
                 public void onItemSelected(AdapterView<?> adapterView, View view, int position,
-                                           long id) {
+                        long id) {
                     final Map<?, ?> map = (Map<?, ?>) adapterView.getItemAtPosition(position);
                     final String tzId = (String) map.get(KEY_ID);
                     if (mCurrentTimeZone != null && !mCurrentTimeZone.getID().equals(tzId)) {
@@ -176,14 +171,14 @@ public class DateTimeActivity extends BaseSetupWizardActivity implements
 
     @Override
     public void onDateSet(DatePicker view, int year, int month, int day) {
-            setDate(this, year, month, day);
-            updateTimeAndDateDisplay();
+        setDate(this, year, month, day);
+        updateTimeAndDateDisplay();
     }
 
     @Override
     public void onTimeSet(TimePicker view, int hourOfDay, int minute) {
-            setTime(this, hourOfDay, minute);
-            updateTimeAndDateDisplay();
+        setTime(this, hourOfDay, minute);
+        updateTimeAndDateDisplay();
     }
 
     private void showDatePicker() {
@@ -203,14 +198,12 @@ public class DateTimeActivity extends BaseSetupWizardActivity implements
         mDateTextView.setText(shortDateFormat.format(now.getTime()));
     }
 
-    private static SimpleAdapter constructTimezoneAdapter(Context context,
-            boolean sortedByName) {
-        final String[] from = new String[] {KEY_DISPLAYNAME, KEY_GMT};
-        final int[] to = new int[] {android.R.id.text1, android.R.id.text2};
+    private static SimpleAdapter constructTimezoneAdapter(Context context) {
+        final String[] from = new String[]{KEY_DISPLAYNAME, KEY_GMT};
+        final int[] to = new int[]{android.R.id.text1, android.R.id.text2};
 
-        final String sortKey = (sortedByName ? KEY_DISPLAYNAME : KEY_OFFSET);
-        final TimeZoneComparator comparator = new TimeZoneComparator(sortKey);
-        final List<HashMap<String, Object>> sortedList = getZones(context);
+        final TimeZoneComparator comparator = new TimeZoneComparator(KEY_OFFSET);
+        final List<Map<String, Object>> sortedList = ZoneGetter.getZonesList(context);
         Collections.sort(sortedList, comparator);
         final SimpleAdapter adapter = new SimpleAdapter(context,
                 sortedList,
@@ -221,82 +214,12 @@ public class DateTimeActivity extends BaseSetupWizardActivity implements
         return adapter;
     }
 
-    private static List<HashMap<String, Object>> getZones(Context context) {
-        final List<HashMap<String, Object>> myData = new ArrayList();
-        final long date = Calendar.getInstance().getTimeInMillis();
-        try {
-            XmlResourceParser xrp = context.getResources().getXml(R.xml.timezones);
-            while (xrp.next() != XmlResourceParser.START_TAG)
-                continue;
-            xrp.next();
-            while (xrp.getEventType() != XmlResourceParser.END_TAG) {
-                while (xrp.getEventType() != XmlResourceParser.START_TAG) {
-                    if (xrp.getEventType() == XmlResourceParser.END_DOCUMENT) {
-                        return myData;
-                    }
-                    xrp.next();
-                }
-                if (xrp.getName().equals(XMLTAG_TIMEZONE)) {
-                    String id = xrp.getAttributeValue(0);
-                    String displayName = xrp.nextText();
-                    addItem(myData, id, displayName, date);
-                }
-                while (xrp.getEventType() != XmlResourceParser.END_TAG) {
-                    xrp.next();
-                }
-                xrp.next();
-            }
-            xrp.close();
-        } catch (XmlPullParserException xppe) {
-            Log.e(TAG, "Ill-formatted timezones.xml file");
-        } catch (java.io.IOException ioe) {
-            Log.e(TAG, "Unable to read timezones.xml file");
-        }
-
-        return myData;
-    }
-
-    private static void addItem(
-            List<HashMap<String, Object>> myData, String id, String displayName, long date) {
-        final HashMap<String, Object> map = new HashMap();
-        map.put(KEY_ID, id);
-        map.put(KEY_DISPLAYNAME, displayName);
-        final TimeZone tz = TimeZone.getTimeZone(id);
-        final int offset = tz.getOffset(date);
-        final int p = Math.abs(offset);
-        final StringBuilder name = new StringBuilder();
-        name.append("GMT");
-
-        if (offset < 0) {
-            name.append('-');
-        } else {
-            name.append('+');
-        }
-
-        name.append(p / (HOURS_1));
-        name.append(':');
-
-        int min = p / 60000;
-        min %= 60;
-
-        if (min < 10) {
-            name.append('0');
-        }
-        name.append(min);
-
-        map.put(KEY_GMT, name.toString());
-        map.put(KEY_OFFSET, offset);
-
-        myData.add(map);
-    }
-
     private static int getTimeZoneIndex(SimpleAdapter adapter, TimeZone tz) {
         final String defaultId = tz.getID();
         final int listSize = adapter.getCount();
         for (int i = 0; i < listSize; i++) {
-            // Using HashMap<String, Object> induces unnecessary warning.
-            final HashMap<?,?> map = (HashMap<?,?>)adapter.getItem(i);
-            final String id = (String)map.get(KEY_ID);
+            final Map<?, ?> map = (Map<?, ?>) adapter.getItem(i);
+            final String id = (String) map.get(KEY_ID);
             if (defaultId.equals(id)) {
                 // If current timezone is in this list, move focus to it
                 return i;
@@ -332,7 +255,7 @@ public class DateTimeActivity extends BaseSetupWizardActivity implements
         }
     }
 
-    private static class TimeZoneComparator implements Comparator<HashMap<?, ?>> {
+    private static class TimeZoneComparator implements Comparator<Map<?, ?>> {
         private String mSortingKey;
 
         public TimeZoneComparator(String sortingKey) {
@@ -343,7 +266,7 @@ public class DateTimeActivity extends BaseSetupWizardActivity implements
             mSortingKey = sortingKey;
         }
 
-        public int compare(HashMap<?, ?> map1, HashMap<?, ?> map2) {
+        public int compare(Map<?, ?> map1, Map<?, ?> map2) {
             Object value1 = map1.get(mSortingKey);
             Object value2 = map2.get(mSortingKey);
 
@@ -368,7 +291,7 @@ public class DateTimeActivity extends BaseSetupWizardActivity implements
     public static class TimePickerFragment extends DialogFragment
             implements TimePickerDialog.OnTimeSetListener {
 
-        private static String TAG = TimePickerFragment.class.getSimpleName();
+        private static final String TAG = TimePickerFragment.class.getSimpleName();
 
         public static TimePickerFragment newInstance() {
             TimePickerFragment frag = new TimePickerFragment();
@@ -377,7 +300,7 @@ public class DateTimeActivity extends BaseSetupWizardActivity implements
 
         @Override
         public void onTimeSet(TimePicker view, int hourOfDay, int minute) {
-            ((DateTimeActivity)getActivity()).onTimeSet(view, hourOfDay, minute);
+            ((DateTimeActivity) getActivity()).onTimeSet(view, hourOfDay, minute);
         }
 
         @Override
@@ -390,13 +313,12 @@ public class DateTimeActivity extends BaseSetupWizardActivity implements
                     calendar.get(Calendar.MINUTE),
                     DateFormat.is24HourFormat(getActivity()));
         }
-
     }
 
     public static class DatePickerFragment extends DialogFragment
             implements DatePickerDialog.OnDateSetListener {
 
-        private static String TAG = DatePickerFragment.class.getSimpleName();
+        private static final String TAG = DatePickerFragment.class.getSimpleName();
 
         public static DatePickerFragment newInstance() {
             DatePickerFragment frag = new DatePickerFragment();
@@ -405,7 +327,7 @@ public class DateTimeActivity extends BaseSetupWizardActivity implements
 
         @Override
         public void onDateSet(DatePicker view, int year, int month, int day) {
-            ((DateTimeActivity)getActivity()).onDateSet(view, year, month, day);
+            ((DateTimeActivity) getActivity()).onDateSet(view, year, month, day);
         }
 
         @Override
