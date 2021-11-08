@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 The CyanogenMod Project
- * Copyright (C) 2017-2018,2020 The LineageOS Project
+ * Copyright (C) 2017-2021 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@ import android.os.Bundle;
 import android.view.MotionEvent;
 import android.view.View;
 
+import com.google.android.setupcompat.util.SystemBarHelper;
+
 import org.lineageos.setupwizard.util.EnableAccessibilityController;
 
 public class WelcomeActivity extends BaseSetupWizardActivity {
@@ -33,10 +35,15 @@ public class WelcomeActivity extends BaseSetupWizardActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        mRootView = findViewById(R.id.root);
-        setNextText(R.string.next);
-        setBackText(R.string.emergency_call);
-        setBackDrawable(null);
+        SystemBarHelper.setBackButtonVisible(getWindow(), false);
+        mRootView = findViewById(R.id.setup_wizard_layout);
+        setNextText(R.string.start);
+        setSkipText(R.string.emergency_call);
+        findViewById(R.id.start).setOnClickListener(view -> onNextPressed());
+        findViewById(R.id.emerg_dialer)
+                .setOnClickListener(view -> startEmergencyDialer());
+        findViewById(R.id.launch_accessibility)
+                .setOnClickListener(view -> startAccessibilitySettings());
         mEnableAccessibilityController =
                 EnableAccessibilityController.getInstance(getApplicationContext());
         mRootView.setOnTouchListener((v, event) ->
@@ -45,11 +52,7 @@ public class WelcomeActivity extends BaseSetupWizardActivity {
     }
 
     @Override
-    public void onBackPressed() {}
-
-    @Override
-    public void onNavigateBack() {
-        startEmergencyDialer();
+    public void onBackPressed() {
     }
 
     @Override

@@ -17,6 +17,9 @@
 
 package org.lineageos.setupwizard;
 
+import static android.os.Binder.getCallingUserHandle;
+
+import static org.lineageos.setupwizard.Manifest.permission.FINISH_SETUP;
 import static org.lineageos.setupwizard.SetupWizardApp.ACTION_SETUP_COMPLETE;
 import static org.lineageos.setupwizard.SetupWizardApp.ENABLE_RECOVERY_UPDATE;
 import static org.lineageos.setupwizard.SetupWizardApp.LOGV;
@@ -33,19 +36,18 @@ import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.UserHandle;
 import android.os.SystemProperties;
+import android.os.UserHandle;
 import android.preference.PreferenceManager;
 import android.view.View;
 import android.view.ViewAnimationUtils;
 import android.widget.ImageView;
 
+import com.google.android.setupcompat.util.SystemBarHelper;
 import com.google.android.setupcompat.util.WizardManagerHelper;
 
 import org.lineageos.setupwizard.util.EnableAccessibilityController;
-
-import static android.os.Binder.getCallingUserHandle;
-import static org.lineageos.setupwizard.Manifest.permission.FINISH_SETUP;
+import org.lineageos.setupwizard.util.SetupWizardUtils;
 
 public class FinishActivity extends BaseSetupWizardActivity {
 
@@ -60,7 +62,6 @@ public class FinishActivity extends BaseSetupWizardActivity {
     private final Handler mHandler = new Handler();
 
     private volatile boolean mIsFinishing = false;
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -107,8 +108,7 @@ public class FinishActivity extends BaseSetupWizardActivity {
         sendBroadcastAsUser(i, getCallingUserHandle(), FINISH_SETUP);
 
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LOCKED);
-        hideBackButton();
-        hideNextButton();
+        SystemBarHelper.hideSystemBars(getWindow());
         finishSetup();
     }
 
@@ -159,10 +159,12 @@ public class FinishActivity extends BaseSetupWizardActivity {
             }
 
             @Override
-            public void onAnimationCancel(Animator animation) {}
+            public void onAnimationCancel(Animator animation) {
+            }
 
             @Override
-            public void onAnimationRepeat(Animator animation) {}
+            public void onAnimationRepeat(Animator animation) {
+            }
         });
         anim.start();
     }
@@ -176,6 +178,7 @@ public class FinishActivity extends BaseSetupWizardActivity {
                 WallpaperManager.getInstance(mSetupWizardApp);
         wallpaperManager.forgetLoadedWallpaper();
         finishAllAppTasks();
+        SetupWizardUtils.enableStatusBar(this);
         Intent intent = WizardManagerHelper.getNextIntent(getIntent(),
                 Activity.RESULT_OK);
         startActivityForResult(intent, NEXT_REQUEST);
